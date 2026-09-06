@@ -28,6 +28,22 @@ jobs:
           git rev-parse HEAD
           git log -1 --format="%H %ci %s"
 
+      - name: Patch pyo3 to the official upstream commit with iOS support
+        run: |
+          cat >> cryptography-src/Cargo.toml << 'EOF'
+
+          # Patch added by this build pipeline, 6 Sept 2026:
+          # PyO3's iOS support ("Link with libpython for iOS extension modules",
+          # PyO3/pyo3#5605) is merged into PyO3's official main branch but not
+          # yet in a numbered crates.io release. This pins to that exact,
+          # official, publicly-auditable commit instead of any third party's
+          # pre-built binary or fork.
+          [patch.crates-io]
+          pyo3 = { git = "https://github.com/PyO3/pyo3", rev = "6aee027" }
+          EOF
+          echo "--- Patched Cargo.toml tail ---"
+          tail -10 cryptography-src/Cargo.toml
+
       - name: Build wheels for iOS (device + simulator, all archs)
         uses: pypa/cibuildwheel@v3.3.1
         with:
