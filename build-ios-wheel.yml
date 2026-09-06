@@ -1,0 +1,51 @@
+name: Build cryptography for iOS
+
+# Manual trigger only - this is a deliberate, occasional build, not something
+# that should run automatically on every push. Run it from the Actions tab
+# whenever a fresh wheel is needed (e.g. after pinning a new cryptography version).
+on:
+  workflow_dispatch:
+    inputs:
+      cryptography_version:
+        description: "Exact pyca/cryptography version tag to build (e.g. 50.0.1)"
+        required: true
+        default: "50.0.1"
+
+jobs:
+  build-ios-wheels:
+    name: Build iOS wheels (device + simulator)
+    # macos-14 = Apple Silicon runner, matches the real architecture target
+    runs-on: macos-14
+    steps:
+      - name: Check out the OFFICIAL pyca/cryptography source at a pinned version
+        uses: actions/checkout@v4
+        with:
+          repository: pyca/cryptography
+          ref: ${{ github.event.inputs.cryptography_version }}
+          path: cryptography-src
+          persist-credentials: false
+
+      - name: Show exactly what commit/tag we're building (audit trail)
+        run: |
+          cd cryptography-src
+          echo "Building pyca/cryptography at tag: ${{ github.event.inputs.cryptography_version }}"
+          git rev-parse HEAD
+          git log -1 --format="%H %ci %s"
+
+      - name: Build wheels for iOS (device + simulator, all archs)
+        uses: pypa/cibuildwheel@v3.3.1
+        with:
+          package-dir: cryptography-src
+        env:
+          CIBW_PLATFORM: ios
+          # Target CPython 3.13 - the first CPython release with official
+          # iOS support, and what BeeWare's Python-Apple-support / Briefcase
+          # iOS runtime is built around.
+          CIBW_BUILD: "cp313-*"
+
+      - name: Upload built wheels as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptography-ios-wheels
+          path: ./wheelhouse/*.whl
+          retention-days: 30
